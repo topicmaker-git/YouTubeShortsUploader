@@ -193,7 +193,13 @@ shorts_videos/video2.mp4,タイトル2,説明文2,"tag3,tag4",28,public,マイ�
 shorts_videos/video3.mp4,タイトル3,説明文3,"tag5,tag6",22,private,テスト用,2025-11-21 12:30
 ```
 
-**新しいCSVカラムの説明:**
+**CSVカラムの説明:**
+- `file`: 動画ファイルのパス（必須）
+- `title`: 動画のタイトル（必須）
+- `description`: 動画の説明文
+- `tags`: タグ（カンマ区切り、例: "Shorts,テスト,Python"）
+- `category_id`: カテゴリID（デフォルト: 22 = People & Blogs）
+- `privacy_status`: 公開設定（`public`, `private`, `unlisted`）
 - `playlist_name`: 動画を追加する再生リスト名（空欄可、事前にYouTube Studioで作成が必要）
 - `publish_at`: 公開予定日時（**日本時間**で指定、空欄の場合は即座に公開）
   - 形式: `yyyy-mm-dd hh:mm:ss` または `yyyy-mm-dd hh:mm`
@@ -354,6 +360,8 @@ YouTube Data API v3は1日あたり10,000ユニットのクォータ制限があ
 クォータは太平洋時間の午前0時（日本時間の午後5時）にリセットされます。
 
 ## カテゴリID一覧
+
+**注意:** カテゴリIDはYouTube Data API専用のパラメータです。YouTube Studioの手動アップロード画面には表示されませんが、API経由でアップロードする際に指定できます。
 
 | ID | カテゴリ |
 |----|---------|
