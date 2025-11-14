@@ -1,0 +1,4 @@
+file,title,description,tags,category_id,privacy_status,playlist_name,publish_at
+shorts_videos/video1.mp4,最初のShorts動画,これは最初のテスト動画です,"Shorts,テスト,自動投稿",22,public,マイショーツコレクション,
+shorts_videos/video2.mp4,2番目のShorts動画,これは2番目のテスト動画です,"Shorts,Python,YouTube",28,public,マイショーツコレクション,2025-11-20 19:00:00
+shorts_videos/video3.mp4,3番目のShorts動画,これは3番目のテスト動画です,"Shorts,API,自動化",28,private,テスト用プレイリスト,2025-11-21 12:30

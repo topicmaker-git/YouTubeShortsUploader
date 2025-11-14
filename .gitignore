@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# YouTube API Credentials
+client_secret*.json
+token.json
+*.json.enc
+
+# Upload history
+upload_history.csv
+quota_state.json
+
+# Logs
+logs/
+*.log
+
+# Videos
+shorts_videos/*.mp4
+shorts_videos/*.mov
+
+# ffmpeg portable
+ffmpeg/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Zone Identifier files (Windows)
+*:Zone.Identifier
