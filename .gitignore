@@ -35,7 +35,8 @@ upload_history.csv
 quota_state.json
 
 # Logs
-logs/
+logs/*
+!logs/.gitkeep
 *.log
 
 # Videos
