@@ -1,326 +1,545 @@
 # YouTube Shorts Uploader
 
-YouTube Data API v3を使用してShorts動画を自動アップロードするPythonツールです。
+**数十本のShorts動画を1日数本ずつ自動アップロード**
 
-## 機能
+YouTube Data API v3を使用して、あらかじめ用意された動画を自動的にアップロードするPythonツールです。Windowsタスクスケジューラーによる定期実行で、手作業の負担を大幅に削減します。
 
-- YouTube Shorts動画の自動アップロード
-- バッチアップロード（複数動画の一括アップロード）
-- 動画の事前検証（アスペクト比、解像度、動画長のチェック）
-- APIクォータ管理
-- アップロード履歴の保存
-- エラーハンドリングと再試行
-- **再生リスト管理**（自動作成・動画追加）
-- **公開日時のスケジュール設定**
+## このツールで実現できること
+
+### メインユースケース: 自動スケジュール実行
+
+```
+あなたの手元にある30本のShorts動画
+    ↓
+CSVファイルに情報を記載（1回だけ）
+    ↓
+Windowsタスクスケジューラーで毎日自動実行
+    ↓
+1日5本ずつ自動アップロード
+    ↓
+6日後、全動画のアップロード完了！
+```
+
+**これまで**: 30本の動画を手動でYouTube Studioにアップロード → 30回の手作業
+**このツールを使えば**: CSVファイルを作成 + タスクスケジューラー設定 → あとは自動実行！
+
+### その他の機能
+
+- 単一動画の即座アップロード
+- 複数動画の一括アップロード
+- 再生リストへの自動追加
+- 公開日時のスケジュール設定（日本時間対応）
+- 動画の事前検証（アスペクト比、解像度、動画長）
+- APIクォータ管理とアップロード履歴
+
+---
+
+## 目次
+
+1. [必要要件](#必要要件)
+2. [クイックスタート（5ステップ）](#クイックスタート5ステップ)
+3. [自動スケジュール実行の完全ガイド](#自動スケジュール実行の完全ガイド)
+4. [その他の使い方](#その他の使い方)
+5. [トラブルシューティング](#トラブルシューティング)
+
+---
 
 ## 必要要件
 
-- Python 3.7以上
-- Google Cloud Console プロジェクト
-- YouTube Data API v3 の有効化
-- OAuth 2.0 クライアント認証情報
-- （オプション）ffmpeg（動画検証機能を使用する場合）
+- **Windows 10/11**（タスクスケジューラーを使用）
+- **Python 3.7以上**
+- **Google Cloud Console アカウント**（無料）
+- **YouTube チャンネル**
 
-## インストール
+---
 
-### クイックスタート
+## クイックスタート（5ステップ）
 
-**Windows:**
+### ステップ1: セットアップスクリプトの実行
+
+プロジェクトフォルダで `setup.bat` をダブルクリック、または以下を実行:
+
 ```batch
 setup.bat
 ```
 
-**Linux/Mac:**
-```bash
-./setup.sh
-```
-
-セットアップスクリプトは以下を自動的に実行します:
-- 仮想環境の作成
+これにより以下が自動実行されます:
+- Python仮想環境の作成
 - 依存パッケージのインストール
 - 必要なディレクトリの作成
-- client_secretファイルの確認
-- ffmpegのチェックとインストール（オプション）
+- ffmpegのインストール確認（オプション）
 
-ffmpegがインストールされていない場合:
-- **Windows**: winget（Windows 10/11標準）を優先的に使用し、自動インストールを選択可能
-- **Linux**: apt-getまたはdnfを使用した自動インストールを選択可能
-- **macOS**: Homebrewを使用した自動インストールを選択可能
+### ステップ2: Google Cloud Consoleの設定
 
-### ffmpegの手動インストール
+詳細は[Google Cloud Consoleの設定](#google-cloud-consoleの設定事前準備)セクションを参照してください。
 
-**Windows（推奨順）:**
+**概要:**
+1. Google Cloud Consoleでプロジェクト作成
+2. YouTube Data API v3を有効化
+3. OAuth 2.0認証情報をダウンロード
+4. `client_secret.json` としてプロジェクトルートに配置
 
-1. **winget経由（Windows 10/11標準、最も簡単）:**
-```batch
-winget install -e --id Gyan.FFmpeg
-```
-**注意:** インストール後、新しいターミナルを開いてPATH変更を反映させてください。
+### ステップ3: 初回認証
 
-2. **ポータブル版（PATH設定不要）:**
-```batch
-install_ffmpeg_portable.bat
-```
-
-3. **Chocolatey経由:**
-```batch
-choco install ffmpeg
-```
-
-**手動インストール:**
-- Windows: https://github.com/BtbN/FFmpeg-Builds/releases
-- Ubuntu/Debian: `sudo apt-get install ffmpeg`
-- macOS: `brew install ffmpeg`
-
-ffmpegがない場合でも`--skip-validation`オプションでアップロード可能です。
-
-### Google Cloud Consoleの設定（事前準備）
-
-1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
-2. 新規プロジェクトを作成
-3. YouTube Data API v3を有効化
-4. OAuth 2.0クライアントIDを作成（デスクトップアプリ）
-5. 認証情報JSONファイルをダウンロード
-6. ダウンロードしたファイルをプロジェクトのルートディレクトリに配置
-
-### OAuth同意画面の設定
-
-必要なスコープ:
-- `https://www.googleapis.com/auth/youtube.upload`
-- `https://www.googleapis.com/auth/youtube`
-
-## 使い方
-
-### 認証
-
-初回実行時、またはトークンの期限が切れた場合は認証が必要です。
-
-**Windows:**
 ```batch
 run.bat auth --show-info
 ```
 
-**Linux/Mac:**
-```bash
-./run.sh auth --show-info
-```
+ブラウザが開き、Googleアカウントでの認証を求められます。認証が完了すると `token.json` が作成され、以降は自動認証されます。
 
-または、仮想環境を有効化してから実行:
+### ステップ4: 動画とCSVファイルの準備
 
-**Windows:**
+1. **動画を配置**:
+   ```
+   YouTubeShortsUploader/
+   └── shorts_videos/
+       ├── video1.mp4
+       ├── video2.mp4
+       └── video3.mp4
+   ```
+
+2. **CSVファイルを作成**:
+
+   `upload_list.csv.example` をコピーして `upload_list.csv` を作成し、動画情報を記載:
+
+   ```csv
+   file,title,description,tags,category_id,privacy_status,playlist_name,publish_at
+   shorts_videos/video1.mp4,動画タイトル1,説明文1,"Shorts,旅行,Vlog",22,public,マイショーツ,
+   shorts_videos/video2.mp4,動画タイトル2,説明文2,"Shorts,料理",22,public,マイショーツ,2025-11-20 19:00
+   shorts_videos/video3.mp4,動画タイトル3,説明文3,"Shorts,ペット",22,public,,2025-11-21 12:30
+   ```
+
+### ステップ5: テスト実行
+
 ```batch
-venv\Scripts\activate
-python main.py auth --show-info
+scheduled_upload.bat
 ```
 
-**Linux/Mac:**
-```bash
-source venv/bin/activate
-python main.py auth --show-info
+これで先頭5件がアップロードされます。成功したら、次は**タスクスケジューラーの設定**に進みます。
+
+---
+
+## 自動スケジュール実行の完全ガイド
+
+### 仕組みの概要
+
+```
+Windowsタスクスケジューラー
+    ↓ 毎日決まった時刻に実行
+scheduled_upload.bat
+    ↓
+upload_list.csvから先頭5件を読み込み
+    ↓
+アップロード実行
+    ↓
+成功した行をCSVから削除
+    ↓
+ログファイルに記録
+    ↓
+次回実行時は残りの先頭5件を処理
 ```
 
-認証が成功すると、`token.json`ファイルが作成され、次回以降は自動的に認証されます。
+### Windowsタスクスケジューラーの設定方法
+
+#### 1. タスクスケジューラーを開く
+
+**方法1（推奨）:**
+1. キーボードで `Windows キー + R` を押す
+2. 「ファイル名を指定して実行」ダイアログが開く
+3. `taskschd.msc` と入力して Enter キーを押す
+
+**方法2:**
+1. スタートメニューを開く
+2. 検索ボックスに「タスクスケジューラ」と入力
+3. 「タスク スケジューラ」アプリをクリック
+
+#### 2. 新しいタスクを作成
+
+1. タスクスケジューラーのウィンドウが開いたら、右側の「操作」パネルから **「基本タスクの作成」** をクリック
+
+   または、左側のツリービューで **「タスク スケジューラ ライブラリ」** を右クリック → **「基本タスクの作成」** を選択
+
+#### 3. タスクの名前と説明を入力
+
+1. **名前**: 「YouTube Shorts 自動アップロード」など、わかりやすい名前を入力
+2. **説明**（オプション）: 「毎日5本の動画をYouTubeにアップロード」など
+3. **「次へ」** をクリック
+
+#### 4. トリガーの設定（実行タイミング）
+
+1. **「毎日」** を選択
+2. **「次へ」** をクリック
+3. **開始日時** を設定:
+   - 開始日: 今日または明日の日付
+   - 開始時刻: 実行したい時刻（例: **午前10時00分**）
+   - **推奨時刻**: 午前10時〜午後3時（YouTube APIクォータは日本時間17時にリセットされるため）
+4. **間隔**: 「1」日（デフォルト）
+5. **「次へ」** をクリック
+
+#### 5. 操作の設定（実行するプログラム）
+
+1. **「プログラムの開始」** を選択
+2. **「次へ」** をクリック
+3. **プログラム/スクリプト** を設定:
+   - **「参照」** ボタンをクリック
+   - プロジェクトフォルダ内の `scheduled_upload.bat` を選択
+   - 例: `C:\Users\YourName\YouTubeShortsUploader\scheduled_upload.bat`
+
+   **重要**: 絶対パスで指定してください（相対パスは不可）
+
+4. **開始（オプション）** を設定:
+   - プロジェクトのルートディレクトリを指定
+   - 例: `C:\Users\YourName\YouTubeShortsUploader`
+
+   **重要**: このフィールドを設定しないと、CSVファイルやログファイルのパスがうまく解決されない場合があります
+
+5. **「次へ」** をクリック
+
+#### 6. 確認と完了
+
+1. 設定内容を確認:
+   - タスク名: YouTube Shorts 自動アップロード
+   - トリガー: 毎日 午前10:00
+   - 操作: C:\Users\YourName\YouTubeShortsUploader\scheduled_upload.bat
+2. **「完了時に、このタスクのプロパティダイアログを開く」** にチェックを入れる（推奨）
+3. **「完了」** をクリック
+
+#### 7. 詳細設定（推奨）
+
+プロパティダイアログが開いたら、以下の設定を確認・変更します:
+
+**「全般」タブ:**
+- **「ユーザーがログオンしているときのみ実行する」** が選択されていることを確認
+- または **「ユーザーがログオンしているかどうかにかかわらず実行する」** を選択（バックグラウンド実行）
+  - この場合、Windowsのパスワード入力が求められます
+
+**「条件」タブ:**
+- **「コンピューターをAC電源で使用している場合のみタスクを開始する」** のチェックを外す（ノートPCの場合、バッテリー駆動時も実行）
+- **「コンピューターの電源をバッテリーに切り替える場合は停止する」** のチェックを外す
+
+**「設定」タブ:**
+- **「タスクが失敗した場合の再起動の間隔」**: 1分（任意）
+- **「再起動の試行回数」**: 3回（任意）
+
+**「OK」** をクリックして保存
+
+#### 8. テスト実行
+
+設定が完了したら、すぐにテストしてみましょう:
+
+1. タスクスケジューラーの左側のツリービューで **「タスク スケジューラ ライブラリ」** をクリック
+2. 中央のタスク一覧から **「YouTube Shorts 自動アップロード」** を探す
+3. タスクを右クリック → **「実行する」** を選択
+4. タスクが実行され、数分後に完了します
+5. **ログファイルを確認**:
+   ```
+   YouTubeShortsUploader/logs/scheduled_upload_YYYYMMDD_HHMMSS.log
+   ```
+6. **CSVファイルを確認**:
+   - 成功した行が削除されているはず
+   - 残りの行はそのまま
+
+#### 9. タスクの状態を確認
+
+- **最終実行時刻**: タスク一覧に表示されます
+- **最終実行の結果**: `0x0`（成功）または エラーコード
+- **次回の実行時刻**: 設定した時刻（毎日午前10時など）
+
+### スケジュール実行の動作詳細
+
+**1回の実行フロー:**
+
+1. `scheduled_upload.bat` が起動
+2. `upload_list.csv` から先頭5件（デフォルト）を読み込み
+3. 各動画を順番にアップロード:
+   - 再生リスト名があれば検索・追加
+   - `publish_at` があればスケジュール公開設定
+   - アップロード成功/失敗をログに記録
+4. 成功した行をCSVから削除（バックアップ `.backup` を自動作成）
+5. ログファイル `logs/scheduled_upload_YYYYMMDD_HHMMSS.log` に詳細を保存
+
+**実行例:**
+
+```
+1日目（11/14 10:00）: 先頭5件（1-5行目）をアップロード → CSVに25行残る
+2日目（11/15 10:00）: 先頭5件（6-10行目）をアップロード → CSVに20行残る
+3日目（11/16 10:00）: 先頭5件（11-15行目）をアップロード → CSVに15行残る
+...
+6日目（11/19 10:00）: 先頭5件（26-30行目）をアップロード → CSVが空になる
+```
+
+### CSVファイルの形式
+
+```csv
+file,title,description,tags,category_id,privacy_status,playlist_name,publish_at
+shorts_videos/video1.mp4,タイトル1,説明文1,"tag1,tag2,tag3",22,public,マイショーツ,
+shorts_videos/video2.mp4,タイトル2,説明文2,"tag1,tag2",22,public,マイショーツ,2025-11-20 19:00
+shorts_videos/video3.mp4,タイトル3,説明文3,"tag1",22,private,,2025-11-21 12:30
+```
+
+**CSVカラムの詳細:**
+
+| カラム | 必須 | 説明 | 例 |
+|--------|------|------|-----|
+| `file` | ✓ | 動画ファイルのパス | `shorts_videos/video1.mp4` |
+| `title` | ✓ | 動画のタイトル | `【Vlog】京都旅行 Day 1` |
+| `description` |  | 動画の説明文 | `京都の紅葉を見てきました` |
+| `tags` |  | タグ（カンマ区切り、ダブルクォートで囲む） | `"Shorts,旅行,京都,Vlog"` |
+| `category_id` |  | カテゴリID（デフォルト: 22） | `22` (People & Blogs) |
+| `privacy_status` |  | 公開設定（デフォルト: public） | `public`, `private`, `unlisted` |
+| `playlist_name` |  | 再生リスト名（事前にYouTube Studioで作成） | `マイショーツコレクション` |
+| `publish_at` |  | 公開予定日時（日本時間、空欄=即座に公開） | `2025-11-20 19:00` |
+
+**日本時間（JST）対応:**
+- `publish_at` は日本時間で指定可能
+- 形式: `yyyy-mm-dd hh:mm:ss` または `yyyy-mm-dd hh:mm`（秒は省略可）
+- 例: `2025-11-20 19:00` → YouTube APIには `2025-11-20T10:00:00Z` (UTC) として自動変換
+
+### 1回にアップロードする件数の変更
+
+デフォルトは5件ですが、変更可能です。
+
+**方法1: `scheduled_upload.bat` を編集**
+
+```batch
+@echo off
+cd /d "%~dp0"
+
+REM 仮想環境を有効化
+call venv\Scripts\activate.bat
+
+REM 1回に7件アップロード
+python main.py scheduled -c upload_list.csv -n 7
+
+pause
+```
+
+**方法2: タスクスケジューラーの引数を変更**
+
+タスクのプロパティ → 「操作」タブ → 編集 → 「引数の追加（オプション）」に:
+```
+-n 7
+```
+
+### APIクォータの考慮
+
+- **1回のアップロード**: 1,600ユニット
+- **1日の制限**: 10,000ユニット
+- **実質制限**: 1日6本まで
+
+**推奨設定:**
+- 1日5本: 8,000ユニット（余裕あり）
+- 1日6本: 9,600ユニット（ギリギリ）
+- 1日7本以上: クォータ超過の可能性あり
+
+### ログの確認
+
+実行結果は `logs/` ディレクトリに保存されます:
+
+```
+logs/
+├── scheduled_upload_20251114_100523.log
+├── scheduled_upload_20251115_100312.log
+└── ...
+```
+
+**ログの内容例:**
+
+```
+2025-11-14 10:05:23 - スケジュール実行開始
+2025-11-14 10:05:23 - CSVファイル: upload_list.csv
+2025-11-14 10:05:23 - 処理対象: 5件
+
+2025-11-14 10:05:24 - [1/5] アップロード開始: shorts_videos/video1.mp4
+2025-11-14 10:06:12 - [1/5] 成功: タイトル1 (動画ID: xxxxxxxxxxx)
+2025-11-14 10:06:12 - 再生リストに追加: マイショーツ
+
+...
+
+2025-11-14 10:25:43 - スケジュール実行完了
+2025-11-14 10:25:43 - 成功: 5件, 失敗: 0件
+```
+
+---
+
+## Google Cloud Consoleの設定（事前準備）
+
+YouTube Data APIを使用するには、Google Cloud Consoleでプロジェクトを作成し、認証情報を取得する必要があります。
+
+### 1. Google Cloud プロジェクトの作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
+2. 画面上部の「プロジェクトを選択」ドロップダウンをクリック
+3. 表示されたダイアログで「新しいプロジェクト」をクリック
+4. プロジェクト名を入力（例：`youtube-shorts-uploader`）
+5. 「作成」ボタンをクリック
+6. プロジェクトの作成完了後、画面上部で作成したプロジェクトが選択されていることを確認
+
+### 2. YouTube Data API v3 の有効化
+
+1. 作成したプロジェクトが選択されていることを確認
+2. 左側のナビゲーションメニューから「APIとサービス」→「ライブラリ」をクリック
+3. 検索ボックスに「YouTube Data API v3」と入力して検索
+4. 検索結果から「YouTube Data API v3」をクリック
+5. 「有効にする」ボタンをクリック
+
+### 3. OAuth同意画面の設定
+
+認証情報を作成する前に、OAuth同意画面の設定が必要です。
+
+1. 左側のナビゲーションメニューから「APIとサービス」→「OAuth同意画面」をクリック
+2. **User Type** の選択：
+   - 個人利用の場合：**外部** を選択
+   - 組織内利用の場合：**内部** を選択（Google Workspace必須）
+3. 「作成」をクリック
+4. **アプリ情報** を入力：
+   - アプリ名：例「YouTube Shorts Uploader」
+   - ユーザーサポートメール：自分のメールアドレスを選択
+   - アプリのロゴ：（オプション）
+5. **アプリのドメイン**：（オプション、空欄でも可）
+6. **デベロッパーの連絡先情報**：自分のメールアドレスを入力
+7. 「保存して次へ」をクリック
+8. **スコープ** の設定：
+   - 「スコープを追加または削除」をクリック
+   - フィルタに「youtube」と入力
+   - 以下の2つのスコープにチェックを入れる：
+     - `https://www.googleapis.com/auth/youtube.upload`
+     - `https://www.googleapis.com/auth/youtube`
+   - 「更新」をクリック
+   - 「保存して次へ」をクリック
+9. **テストユーザー** の追加：
+   - 「ADD USERS」をクリック
+   - 動画をアップロードするGoogleアカウントのメールアドレスを入力
+   - 「追加」をクリック
+   - 「保存して次へ」をクリック
+10. 概要を確認して「ダッシュボードに戻る」をクリック
+
+### 4. OAuth 2.0 認証情報の作成（デスクトップアプリ用）
+
+1. 左側のナビゲーションメニューから「APIとサービス」→「認証情報」をクリック
+2. 画面上部の「認証情報を作成」ボタンをクリック
+3. ドロップダウンメニューから「OAuthクライアントID」を選択
+4. **アプリケーションの種類**：「デスクトップアプリ」を選択
+5. **名前**：認証情報の名前を入力（例：`YouTube Uploader Desktop Client`）
+6. 「作成」ボタンをクリック
+7. 「OAuthクライアントを作成しました」というダイアログが表示される
+8. 「JSONをダウンロード」ボタンをクリックして認証情報ファイルをダウンロード
+9. ダウンロードしたファイル（`client_secret_xxxxx.json`）を `client_secret.json` にリネーム
+10. リネームしたファイルをプロジェクトのルートディレクトリに配置
+```
+YouTubeShortsUploader/
+├── client_secret.json  ← ここに配置
+├── main.py
+├── requirements.txt
+└── ...
+```
+
+### 重要な注意事項
+
+**アップロード制限について**：
+- **テストモード**（OAuth同意画面が未公開の状態）では、**1日あたり最大6本**の動画アップロード制限があります
+- これはYouTube Data API v3のデフォルトクォータ（10,000ユニット/日）によるものです
+- 制限を超える場合は、以下のいずれかの対応が必要です：
+  - Google Cloud Consoleでクォータの増加をリクエスト
+  - OAuth同意画面の審査を受けて本番環境に移行（Googleの審査プロセスが必要）
+
+**必要なスコープ**：
+```
+https://www.googleapis.com/auth/youtube.upload
+https://www.googleapis.com/auth/youtube
+```
+
+これらのスコープにより、アプリケーションは以下の操作が可能になります：
+- 動画のアップロード
+- 動画情報の取得と管理
+- 再生リストの作成と管理
+
+---
+
+## その他の使い方
 
 ### 単一動画のアップロード
 
-**Windows:**
+すぐに1本だけアップロードしたい場合:
+
 ```batch
-run.bat upload shorts_videos\video.mp4 -t "Title" -d "Description"
+run.bat upload shorts_videos\video.mp4 -t "動画タイトル" -d "説明文"
 ```
 
-**Linux/Mac:**
-```bash
-./run.sh upload shorts_videos/video.mp4 -t "Title" -d "Description"
-```
-
-オプション:
+**オプション:**
 - `-t, --title`: 動画のタイトル（必須）
 - `-d, --description`: 動画の説明文
 - `--tags`: タグ（カンマ区切り）
 - `-c, --category`: カテゴリID（デフォルト: 22）
 - `-p, --privacy`: 公開設定（public/private/unlisted、デフォルト: public）
 - `--playlist`: 追加する再生リスト名（事前にYouTube Studioで作成が必要）
-- `--publish-at`: 公開予定日時（**日本時間**で指定: "2025-11-20 19:00:00" または "2025-11-20 19:00"）
+- `--publish-at`: 公開予定日時（日本時間: "2025-11-20 19:00:00"）
 - `--skip-validation`: 動画検証をスキップ
-- `--force`: 検証エラーを無視して強制アップロード
 
-例:
+**例:**
 
-```bash
+```batch
 # 基本的なアップロード
-python main.py upload shorts_videos/sample.mp4 \
-  -t "テスト動画" \
-  -d "これはテスト動画です" \
-  --tags "Shorts,テスト,Python" \
-  -p private
+run.bat upload shorts_videos\sample.mp4 -t "テスト動画" -d "これはテストです"
 
 # 再生リストに追加
-python main.py upload shorts_videos/sample.mp4 \
-  -t "テスト動画" \
-  --playlist "マイショーツコレクション"
+run.bat upload shorts_videos\sample.mp4 -t "テスト動画" --playlist "マイショーツ"
 
 # スケジュール公開（2025年11月20日 19:00 日本時間）
-python main.py upload shorts_videos/sample.mp4 \
-  -t "スケジュール動画" \
-  --publish-at "2025-11-20 19:00:00"
-
-# 再生リスト＋スケジュール公開
-python main.py upload shorts_videos/sample.mp4 \
-  -t "スケジュール動画" \
-  --playlist "マイショーツコレクション" \
-  --publish-at "2025-11-20 19:00"
+run.bat upload shorts_videos\sample.mp4 -t "スケジュール動画" --publish-at "2025-11-20 19:00"
 ```
 
-### バッチアップロード
-
-ディレクトリ内の動画を一括アップロード:
-
-```bash
-python main.py batch -d shorts_videos -i 30 --save-history
-```
+### バッチアップロード（一括アップロード）
 
 CSVファイルから一括アップロード:
 
-```bash
-python main.py batch -c upload_list.csv --save-history
+```batch
+run.bat batch -c upload_list.csv --save-history
 ```
 
-CSVファイルの形式:
-```csv
-file,title,description,tags,category_id,privacy_status,playlist_name,publish_at
-shorts_videos/video1.mp4,タイトル1,説明文1,"tag1,tag2",22,public,マイショーツ,
-shorts_videos/video2.mp4,タイトル2,説明文2,"tag3,tag4",28,public,マイショーツ,2025-11-20 19:00:00
-shorts_videos/video3.mp4,タイトル3,説明文3,"tag5,tag6",22,private,テスト用,2025-11-21 12:30
-```
-
-**CSVカラムの説明:**
-- `file`: 動画ファイルのパス（必須）
-- `title`: 動画のタイトル（必須）
-- `description`: 動画の説明文
-- `tags`: タグ（カンマ区切り、例: "Shorts,テスト,Python"）
-- `category_id`: カテゴリID（デフォルト: 22 = People & Blogs）
-- `privacy_status`: 公開設定（`public`, `private`, `unlisted`）
-- `playlist_name`: 動画を追加する再生リスト名（空欄可、事前にYouTube Studioで作成が必要）
-- `publish_at`: 公開予定日時（**日本時間**で指定、空欄の場合は即座に公開）
-  - 形式: `yyyy-mm-dd hh:mm:ss` または `yyyy-mm-dd hh:mm`
-  - 例: `2025-11-20 19:00:00`（2025年11月20日 19:00 日本時間）
-  - 例: `2025-11-21 12:30`（秒は省略可能）
-
-オプション:
-- `-d, --directory`: 動画が格納されているディレクトリ
+**オプション:**
 - `-c, --csv-file`: メタデータCSVファイル
-- `--pattern`: ファイルパターン（デフォルト: *.mp4）
-- `-i, --interval`: アップロード間隔（分、デフォルト: 30）
 - `--save-history`: アップロード履歴を保存
 
 ### 再生リスト管理
-
-再生リストの一覧表示や動画の追加が可能です。
-
-```bash
-# アップロード時に再生リストに追加（存在しない場合は自動作成）
-python main.py upload shorts_videos/sample.mp4 \
-  -t "タイトル" \
-  --playlist "マイショーツコレクション"
-```
 
 **再生リストの仕組み:**
 - 再生リスト名を指定すると、既存の再生リストから名前で検索
 - **見つからない場合は警告を表示し、再生リストなしでアップロード**
 - タイポによる誤った再生リスト作成を防ぎます
 - 作成された再生リストIDはキャッシュされ、同じ名前の場合は再利用
-- CSVファイルで複数の動画を同じ再生リストに追加することも可能
 
 **注意:** 再生リストは自動作成されません。事前にYouTube Studioで作成しておいてください。
-
-### スケジュール実行（自動アップロード）
-
-**Windowsタスクスケジューラーで定期実行**し、数十本の動画を1日数本ずつ自動アップロードできます。
-
-```bash
-# 手動でテスト実行（先頭5件をアップロード）
-python main.py scheduled -c upload_list.csv -n 5
-```
-
-**動作:**
-1. `upload_list.csv`から先頭N件（デフォルト: 5件）を読み込み
-2. アップロードを実行
-3. 成功した行をCSVから削除
-4. 実行結果とログを`logs/scheduled_upload_YYYYMMDD_HHMMSS.log`に保存
-5. CSVが空になるまで繰り返し（タスクスケジューラーで毎日実行）
-
-**セットアップ手順:**
-
-1. `upload_list.csv`に全動画の情報を記載
-2. `scheduled_upload.bat`をダブルクリックしてテスト実行
-3. Windowsタスクスケジューラーに登録:
-   - タスクスケジューラーを開く
-   - 「基本タスクの作成」を選択
-   - トリガー: 毎日（例: 午前10時）
-   - 操作: プログラムの開始
-   - プログラム/スクリプト: `scheduled_upload.bat`の絶対パス
-   - 開始: プロジェクトのルートディレクトリ
-
-**オプション:**
-- `-c, --csv-file`: CSVファイルのパス（デフォルト: upload_list.csv）
-- `-n, --max-uploads`: 1回の実行で処理する件数（デフォルト: 5）
-- `--log-file`: ログファイルのパス（指定しない場合は自動生成）
-
-**利点:**
-- 手間を大幅に削減（数十本の動画を自動処理）
-- APIクォータを分散（1日5本なら余裕で制限内）
-- エラー時も次回の実行で自動リトライ
-- 実行履歴がログに残る
-
-### 公開日時のスケジュール設定
-
-将来の日時を指定して動画を予約公開できます。
-
-```bash
-# 2025年11月20日 19:00（日本時間）に公開
-python main.py upload shorts_videos/sample.mp4 \
-  -t "スケジュール動画" \
-  --publish-at "2025-11-20 19:00:00"
-
-# 秒は省略可能
-python main.py upload shorts_videos/sample.mp4 \
-  -t "スケジュール動画" \
-  --publish-at "2025-11-20 19:00"
-```
-
-**注意事項:**
-- スケジュール公開を設定した動画は、一旦`private`としてアップロードされ、指定日時に自動的に公開されます
-- **日本時間（JST）**で指定してください。自動的にUTCに変換されます
-- 形式: `yyyy-mm-dd hh:mm:ss` または `yyyy-mm-dd hh:mm`（秒は省略可）
-- 例: `2025-11-20 19:00:00` → YouTube APIには `2025-11-20T10:00:00Z` (UTC) として送信されます
 
 ### 動画の検証
 
 単一ファイルの検証:
 
-```bash
-python main.py validate shorts_videos/sample.mp4
+```batch
+run.bat validate shorts_videos\sample.mp4
 ```
 
 ディレクトリ内の全ファイルを検証:
 
-```bash
-python main.py validate -d shorts_videos
+```batch
+run.bat validate -d shorts_videos
 ```
 
 ### クォータ管理
 
 現在のクォータ状態を確認:
 
-```bash
-python main.py quota
+```batch
+run.bat quota
 ```
 
 クォータをリセット:
 
-```bash
-python main.py quota --reset
+```batch
+run.bat quota --reset
 ```
+
+---
 
 ## YouTube Shortsの仕様
 
@@ -346,18 +565,26 @@ python main.py quota --reset
 
 このツールでは、自動的に `#Shorts` タグがタイトルと説明文に追加されます。
 
+---
+
 ## APIクォータについて
 
 YouTube Data API v3は1日あたり10,000ユニットのクォータ制限があります。
 
-主な操作のコスト:
+**主な操作のコスト:**
 - 動画アップロード（videos.insert）: 1,600ユニット
 - 動画情報取得（videos.list）: 1ユニット
 - チャンネル情報取得（channels.list）: 1ユニット
 
-1日にアップロードできる動画数: 約6本（10,000 ÷ 1,600 = 6.25）
+**1日にアップロードできる動画数:** 約6本（10,000 ÷ 1,600 = 6.25）
 
-クォータは太平洋時間の午前0時（日本時間の午後5時）にリセットされます。
+**クォータリセット時刻:** 太平洋時間の午前0時（日本時間の午後5時）
+
+**推奨設定:**
+- スケジュール実行: 1日5本（8,000ユニット、余裕あり）
+- 最大: 1日6本（9,600ユニット、ギリギリ）
+
+---
 
 ## カテゴリID一覧
 
@@ -381,25 +608,7 @@ YouTube Data API v3は1日あたり10,000ユニットのクォータ制限があ
 | 28 | Science & Technology |
 | 29 | Nonprofits & Activism |
 
-## プロジェクト構造
-
-```
-YouTubeShortsUploader/
-├── src/
-│   ├── __init__.py
-│   ├── auth.py              # 認証モジュール
-│   ├── uploader.py          # アップロードモジュール
-│   ├── batch_uploader.py    # バッチアップロードモジュール
-│   ├── validator.py         # 動画検証モジュール
-│   ├── quota_manager.py     # クォータ管理モジュール
-│   └── playlist_manager.py  # 再生リスト管理モジュール
-├── shorts_videos/           # 動画ファイル格納ディレクトリ
-├── logs/                    # ログとアップロード履歴
-├── main.py                  # メインスクリプト
-├── requirements.txt         # 依存パッケージ
-├── .gitignore
-└── README.md
-```
+---
 
 ## トラブルシューティング
 
@@ -425,26 +634,97 @@ YouTube Data API v3の1日あたりのクォータ（10,000ユニット）を超
 2. 動画の長さが180秒以内であることを確認
 3. タイトルまたは説明文に `#Shorts` タグが含まれていることを確認
 
+### タスクスケジューラーでエラーが発生する
+
+**症状:** タスクが「実行中」のまま終わらない、またはエラーコードが表示される
+
+**解決方法:**
+
+1. **パスを絶対パスで指定**:
+   - `scheduled_upload.bat` の絶対パスを指定（例: `C:\Users\YourName\YouTubeShortsUploader\scheduled_upload.bat`）
+   - 「開始」フィールドにプロジェクトのルートディレクトリを指定
+
+2. **手動実行でテスト**:
+   - `scheduled_upload.bat` をダブルクリックして手動実行
+   - エラーメッセージを確認
+
+3. **ログファイルを確認**:
+   - `logs/` ディレクトリ内のログファイルを確認
+   - エラーの詳細が記録されています
+
+4. **認証トークンの有効期限**:
+   - `token.json` が期限切れの場合、手動で再認証:
+     ```batch
+     run.bat auth --show-info
+     ```
+
 ### ffprobeが見つからない
 
 動画検証機能を使用するには、ffmpegのインストールが必要です。
 
-Ubuntu/Debian:
-```bash
-sudo apt-get install ffmpeg
+**Windows（推奨順）:**
+
+1. **winget経由:**
+   ```batch
+   winget install -e --id Gyan.FFmpeg
+   ```
+   インストール後、新しいターミナルを開いてPATH変更を反映させてください。
+
+2. **ポータブル版:**
+   ```batch
+   install_ffmpeg_portable.bat
+   ```
+
+**または、検証をスキップ:**
+```batch
+run.bat upload shorts_videos\sample.mp4 -t "タイトル" --skip-validation
 ```
 
-macOS:
-```bash
-brew install ffmpeg
+### 再生リストが見つからない
+
+**症状:** 警告が表示され、再生リストなしでアップロード
+
+**原因:**
+- タイポ（スペルミス）
+- 再生リストが未作成
+
+**解決方法:**
+1. YouTube Studioで再生リストを作成
+2. CSVファイルの `playlist_name` カラムに正確な名前を記載（スペースや大文字小文字に注意）
+
+---
+
+## プロジェクト構造
+
+```
+YouTubeShortsUploader/
+├── src/
+│   ├── __init__.py
+│   ├── auth.py              # 認証モジュール
+│   ├── uploader.py          # アップロードモジュール
+│   ├── batch_uploader.py    # バッチアップロードモジュール
+│   ├── validator.py         # 動画検証モジュール
+│   ├── quota_manager.py     # クォータ管理モジュール
+│   └── playlist_manager.py  # 再生リスト管理モジュール
+├── shorts_videos/           # 動画ファイル格納ディレクトリ
+├── logs/                    # ログとアップロード履歴
+├── main.py                  # メインスクリプト
+├── scheduled_upload.bat     # タスクスケジューラー用スクリプト
+├── run.bat                  # 実行ラッパー（Windows）
+├── setup.bat                # セットアップスクリプト（Windows）
+├── upload_list.csv.example  # CSVサンプル
+├── requirements.txt         # 依存パッケージ
+├── README.md                # このファイル
+└── CLAUDE.md                # 開発者向けドキュメント
 ```
 
-Windows:
-[ffmpeg公式サイト](https://ffmpeg.org/download.html)からダウンロードしてインストール
+---
 
 ## ライセンス
 
 このプロジェクトはMITライセンスの下で公開されています。
+
+---
 
 ## 参考資料
 
@@ -452,44 +732,7 @@ Windows:
 - [YouTube Shorts 公式ヘルプ](https://support.google.com/youtube/answer/10059070)
 - [API クォータについて](https://developers.google.com/youtube/v3/getting-started#quota)
 
-## 自動アップロードの実用例
-
-### シナリオ: 30本の動画を毎日5本ずつアップロード
-
-1. **準備:**
-   ```bash
-   # 30本の動画情報をCSVに記載
-   # upload_list.csv に30行のデータを用意
-   ```
-
-2. **テスト実行:**
-   ```bash
-   # 先頭5件をテストアップロード
-   scheduled_upload.bat
-   ```
-
-3. **タスクスケジューラーに登録:**
-   - 毎日午前10時に実行
-   - `scheduled_upload.bat`を指定
-
-4. **自動実行:**
-   - 1日目: 1-5本目がアップロード、CSVに25行残る
-   - 2日目: 6-10本目がアップロード、CSVに20行残る
-   - ...
-   - 6日目: 26-30本目がアップロード、CSVが空になる
-
-5. **結果確認:**
-   ```
-   logs/
-   ├── scheduled_upload_20251114_100000.log  # 1日目
-   ├── scheduled_upload_20251115_100000.log  # 2日目
-   └── ...
-   ```
-
-**APIクォータ計算:**
-- 1回のアップロード: 1,600ユニット
-- 5本/日: 8,000ユニット（制限10,000ユニット内）
-- 余裕あり！
+---
 
 ## 注意事項
 
